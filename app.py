@@ -117,8 +117,10 @@ def save_roster_data(roster):
       st.error(f"Roster Save දෝෂයකි: {e}")
 
 # Always load persistent data
-st.session_state.student_data = load_marks_data()
-st.session_state.roster_data = load_roster_data()
+if "student_data" not in st.session_state:
+  st.session_state.student_data = load_marks_data()
+if "roster_data" not in st.session_state:
+  st.session_state.roster_data = load_roster_data()
 
 # Header
 st.title("🏫 මහා/දෙනු/ සිරිසුමන ද්විභාෂා පිරිවෙන")
@@ -193,7 +195,7 @@ elif zoom_level == "ඉතා විශාල (Extra Large)":
       unsafe_allow_html=True,
   )
 
-# TAB NAVIGATION (Admin සහ Teachers සඳහා වෙනස් වේ - අලුත් ටැබ් එක එකතු කරන ලදී)
+# TAB NAVIGATION (Admin සහ Teachers සඳහා වෙනස් වේ)
 if admin_access:
   tab0, tab1, tab_class_entry, tab2, tab3, tab4, tab5 = st.tabs([
       "📋 ශිෂ්‍ය නාම ලේඛනය",
@@ -231,7 +233,7 @@ GRADES = [
 # Years List
 YEARS = ["2025", "2026", "2027", "2028", "2029", "2030"]
 
-# List of all 10 subjects (Updated to 'සංස්කෘත')
+# List of all 10 subjects
 SUBJECTS = [
     "ත්‍රිපිටක ධර්මය (Tripitaka)",
     "සිංහල (Sinhala)",
@@ -317,7 +319,7 @@ with tab1:
       [
           "📸 Photo එකක් upload කර Scan කිරීම (AI Scan)",
           "📄 PDF File එකක් upload කර Scan කිරීම (PDF Scan)",
-          "✍️️ අතින් එකින් එක ටයිප් කිරීම (Manual Entry)",
+          "✍ අතින් එකින් එක ටයිප් කිරීම (Manual Entry)",
       ],
       horizontal=True,
   )
@@ -372,7 +374,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -606,7 +608,7 @@ with tab1:
           st.warning("කරුණාකර ශිෂ්‍ය අංකය ඇතුළත් කරන්න.")
 
 # ----------------------------------------------------
-# TAB NEW: CLASS-WISE MARKS, TOTALS, AVERAGE & RANKINGS (Added New Tab)
+# TAB NEW: CLASS-WISE MARKS, TOTALS, AVERAGE & RANKINGS
 # ----------------------------------------------------
 with tab_class_entry:
   st.header("📊 පන්ති ලකුණු ලේඛනය, මුළු එකතුව, සාමාන්‍ය සහ ශ්‍රේණිගත කිරීම (Ranks)")
@@ -631,35 +633,26 @@ with tab_class_entry:
   if class_marks_df.empty:
     st.warning("තෝරාගත් පන්තිය, වර්ෂය සහ වාරය සඳහා දත්ත කිසිවක් හමු නොවීය.")
   else:
-    # Pivot table to get subjects as columns for each Student ID
     pivot_class = class_marks_df.pivot_table(
         index="Student ID", columns="Subject", values="Marks", aggfunc="first"
     ).fillna(0)
 
-    # Ensure all SUBJECTS columns exist
     for sub in SUBJECTS:
       if sub not in pivot_class.columns:
         pivot_class[sub] = 0
 
     pivot_class = pivot_class[SUBJECTS]
-
-    # Calculate Total Marks
     pivot_class["මුළු ලකුණු එකතුව"] = pivot_class.sum(axis=1)
 
-    # Determine divisor based on grade rules
     if ce_grade in ["මූලික ශ්‍රේණිය", "1 ශ්‍රේණිය", "2 ශ්‍රේණිය", "English Medium 1", "English Medium 2"]:
       divisor = 6
     else:
       divisor = 10
 
     pivot_class["සාමාන්‍ය අගය"] = (pivot_class["මුළු ලකුණු එකතුව"] / divisor).round(2)
-
-    # Calculate Ranks based on Total Marks
     pivot_class["ස්ථානය (Rank)"] = pivot_class["මුළු ලකුණු එකතුව"].rank(ascending=False, method="min").astype(int)
-
     pivot_class = pivot_class.sort_values(by="ස්ථානය (Rank)").reset_index()
 
-    # Display table with formatting and Top 3 red highlighting
     def highlight_top3(row):
       if row["ස්ථානය (Rank)"] <= 3:
         return ['background-color: #ffcccc; color: #990000; font-weight: bold;' for _ in row]
@@ -671,7 +664,6 @@ with tab_class_entry:
     styled_table = pivot_class.style.apply(highlight_top3, axis=1)
     st.dataframe(styled_table, use_container_width=True)
 
-    # Printable HTML report generation
     html_rows = ""
     for idx, r in pivot_class.iterrows():
       row_style = "background-color: #ffcccc; color: #990000; font-weight: bold;" if r["ස්ථානය (Rank)"] <= 3 else ""
@@ -1001,9 +993,9 @@ if admin_access and tab5:
   with tab5:
     st.header("⚙️ දත්ත පාලන මධ්‍යස්ථානය (Data Management & CSV Import)")
     
-    # CSV Upload Feature for recovering/managing past data
     st.subheader("📁 පරණ දත්ත අඩංගු CSV ගොනුවක් උඩුගත කිරීම (CSV Upload)")
     uploaded_csv = st.file_uploader("ඔබගේ පරණ ඩේටා අඩංගු CSV ෆයිල් එක මෙහි Upload කරන්න:", type=["csv"])
+    
     if uploaded_csv is not None:
       try:
         csv_df = pd.read_csv(uploaded_csv)
@@ -1018,11 +1010,15 @@ if admin_access and tab5:
         st.error(f"CSV ගොනුව කියවීමේදී දෝෂයක් මතු විය: {e}")
 
     st.divider()
+    
+    # Corrected data_editor state handling
     edited_df = st.data_editor(
         st.session_state.student_data,
         num_rows="dynamic",
         use_container_width=True,
+        key="data_editor_table"
     )
+    
     if st.button(
         "💾 සංස්කරණය කළ දත්ත Cloud එකේ Save කරන්න",
         type="primary",
@@ -1057,11 +1053,12 @@ if admin_access and tab5:
         st.rerun()
 
     with col_del2:
-      if admin_access and st.button(
+      if st.button(
           "🔓 සියලුම Locked Data Unlock කරන්න (Admin Only)",
           use_container_width=True,
       ):
-        st.session_state.student_data["Status"] = "Draft"
+        if "Status" in st.session_state.student_data.columns:
+          st.session_state.student_data["Status"] = "Draft"
         save_marks_data(st.session_state.student_data)
         st.success("සියලුම දත්ත Unlock කරන ලදී!")
         st.rerun()
