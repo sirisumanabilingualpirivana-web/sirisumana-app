@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import io
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -192,20 +193,22 @@ elif zoom_level == "ඉතා විශාල (Extra Large)":
       unsafe_allow_html=True,
   )
 
-# TAB NAVIGATION (Admin සහ Teachers සඳහා වෙනස් වේ)
+# TAB NAVIGATION (Admin සහ Teachers සඳහා වෙනස් වේ - අලුත් ටැබ් එක එකතු කරන ලදී)
 if admin_access:
-  tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+  tab0, tab1, tab_class_entry, tab2, tab3, tab4, tab5 = st.tabs([
       "📋 ශිෂ්‍ය නාම ලේඛනය",
       "📝 ලකුණු ඇතුළත් කිරීම",
+      "📊 පන්ති ලකුණු හා ශ්‍රේණිගත කිරීම",
       "📄 විෂයානුබද්ධ විශ්ලේෂණය (නිල වාර්තාව)",
       "👤 ශිෂ්‍යානුබද්ධ විශ්ලේෂණය",
       "🏫 සමස්ත පන්ති විශ්ලේෂණය",
-      "⚙️ දත්ත පාලනය",
+      "⚙️️ දත්ත පාලනය",
   ])
 else:
-  tab0, tab1, tab4 = st.tabs([
+  tab0, tab1, tab_class_entry, tab4 = st.tabs([
       "📋 ශිෂ්‍ය නාම ලේඛනය",
       "📝 ලකුණු ඇතුළත් කිරීම",
+      "📊 පන්ති ලකුණු හා ශ්‍රේණිගත කිරීම",
       "🏫 සමස්ත පන්ති විශ්ලේෂණය",
   ])
   tab2, tab3, tab5 = None, None, None
@@ -453,7 +456,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -601,6 +604,132 @@ with tab1:
           st.success("ලකුණු සාර්ථකව Cloud ඩේටාබේස් එකට එක් කර Lock කරන ලදී!")
         else:
           st.warning("කරුණාකර ශිෂ්‍ය අංකය ඇතුළත් කරන්න.")
+
+# ----------------------------------------------------
+# TAB NEW: CLASS-WISE MARKS, TOTALS, AVERAGE & RANKINGS (Added New Tab)
+# ----------------------------------------------------
+with tab_class_entry:
+  st.header("📊 පන්ති ලකුණු ලේඛනය, මුළු එකතුව, සාමාන්‍ය සහ ශ්‍රේණිගත කිරීම (Ranks)")
+  st.info("මෙහිදී පන්තියට අදාළ සියලුම විෂය ලකුණු, මුළු එකතුව, බෙදිය යුතු විෂය ගණනට අනුව සාමාන්‍ය අගය සහ පන්තියේ ස්ථානය (වෙනියා) දැකගත හැක. මුල් සිසුන් 3 දෙනා රතු පාටින් පෙන්වනු ලැබේ.")
+
+  col_ce1, col_ce2, col_ce3 = st.columns(3)
+  with col_ce1:
+    ce_grade = st.selectbox("පන්තිය / ශ්‍රේණිය තෝරන්න:", GRADES, key="ce_grade")
+  with col_ce2:
+    ce_year = st.selectbox("වර්ෂය තෝරන්න:", YEARS, index=1, key="ce_year")
+  with col_ce3:
+    ce_term = st.selectbox("වාරය තෝරන්න:", ["1 වන වාරය", "2 වන වාරය", "3 වන වාරය"], key="ce_term")
+
+  st.divider()
+
+  class_marks_df = st.session_state.student_data[
+      (st.session_state.student_data["Grade"] == ce_grade)
+      & (st.session_state.student_data["Year"] == ce_year)
+      & (st.session_state.student_data["Term"] == ce_term)
+  ]
+
+  if class_marks_df.empty:
+    st.warning("තෝරාගත් පන්තිය, වර්ෂය සහ වාරය සඳහා දත්ත කිසිවක් හමු නොවීය.")
+  else:
+    # Pivot table to get subjects as columns for each Student ID
+    pivot_class = class_marks_df.pivot_table(
+        index="Student ID", columns="Subject", values="Marks", aggfunc="first"
+    ).fillna(0)
+
+    # Ensure all SUBJECTS columns exist
+    for sub in SUBJECTS:
+      if sub not in pivot_class.columns:
+        pivot_class[sub] = 0
+
+    pivot_class = pivot_class[SUBJECTS]
+
+    # Calculate Total Marks
+    pivot_class["මුළු ලකුණු එකතුව"] = pivot_class.sum(axis=1)
+
+    # Determine divisor based on grade rules
+    # Foundation, Grade 1, Grade 2 & English Medium 1, 2 -> Divide by 6
+    # Grade 3, 4, 5 & English Medium 3, 4, 5 -> Divide by 10
+    if ce_grade in ["මූලික ශ්‍රේණිය", "1 ශ්‍රේණිය", "2 ශ්‍රේණිය", "English Medium 1", "English Medium 2"]:
+      divisor = 6
+    else:
+      divisor = 10
+
+    pivot_class["සාමාන්‍ය අගය"] = (pivot_class["මුළු ලකුණු එකතුව"] / divisor).round(2)
+
+    # Calculate Ranks based on Total Marks
+    pivot_class["ස්ථානය (Rank)"] = pivot_class["මුළු ලකුණු එකතුව"].rank(ascending=False, method="min").astype(int)
+
+    pivot_class = pivot_class.sort_values(by="ස්ථානය (Rank)").reset_index()
+
+    # Display table with formatting and Top 3 red highlighting
+    def highlight_top3(row):
+      if row["ස්ථානය (Rank)"] <= 3:
+        return ['background-color: #ffcccc; color: #990000; font-weight: bold;' for _ in row]
+      else:
+        return ['' for _ in row]
+
+    st.subheader(f"📌 {ce_grade} - {ce_term} ({ce_year}) ශිෂ්‍ය ලකුණු හා ශ්‍රේණිගත කිරීමේ වාර්තාව (විෂයයන් {divisor}කින් බෙදා සාමාන්‍ය සදා ඇත)")
+    
+    styled_table = pivot_class.style.apply(highlight_top3, axis=1)
+    st.dataframe(styled_table, use_container_width=True)
+
+    # Printable HTML report generation
+    html_rows = ""
+    for idx, r in pivot_class.iterrows():
+      row_style = "background-color: #ffcccc; color: #990000; font-weight: bold;" if r["ස්ථානය (Rank)"] <= 3 else ""
+      html_rows += f"""
+        <tr style="{row_style}">
+          <td style="border:1px solid #000; padding:6px; text-align:center;">{r['ස්ථානය (Rank)']}</td>
+          <td style="border:1px solid #000; padding:6px; text-align:center;">{r['Student ID']}</td>
+          <td style="border:1px solid #000; padding:6px; text-align:center;">{r['මුළු ලකුණු එකතුව']}</td>
+          <td style="border:1px solid #000; padding:6px; text-align:center;">{r['සාමාන්‍ය අගය']}</td>
+        </tr>
+      """
+
+    print_html = f"""
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>{ce_grade} පන්ති ලකුණු විශ්ලේෂණ වාර්තාව</title>
+        <style>
+          body {{ font-family: 'Arial', sans-serif; padding: 20px; color: #000; }}
+          .header {{ text-align: center; border: 2px solid #000; padding: 10px; margin-bottom: 20px; }}
+          table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+          th, td {{ border: 1px solid #000; padding: 8px; text-align: center; font-size: 14px; }}
+          th {{ background-color: #f2f2f2; }}
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>මහ/දෙනු/ සිරිසුමන ද්විභාෂා පිරිවෙණ</h2>
+          <h3>පන්ති ලකුණු විශ්ලේෂණ වාර්තාව - {ce_grade} ({ce_term} - {ce_year})</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ස්ථානය (Rank)</th>
+              <th>විභාග අංකය</th>
+              <th>මුළු ලකුණු එකතුව</th>
+              <th>සාමාන්‍ය අගය</th>
+            </tr>
+          </thead>
+          <tbody>
+            {html_rows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    """
+
+    st.download_button(
+        label="📥 පන්ති වාර්තාව මුද්‍රණය කිරීමට (Printable HTML) Download කරගන්න",
+        data=print_html,
+        file_name=f"{ce_grade}_{ce_year}_{ce_term}_Class_Report.html",
+        mime="text/html",
+        type="primary",
+        use_container_width=True,
+    )
 
 # ----------------------------------------------------
 # TAB 2: SUBJECT-WISE OFFICIAL PRINT FORM (Admin Only)
@@ -868,11 +997,29 @@ with tab4:
       st.plotly_chart(fig_class, use_container_width=True)
 
 # ----------------------------------------------------
-# TAB 5: DATA MANAGEMENT & CLEAR BUTTON (Admin Only)
+# TAB 5: DATA MANAGEMENT, CSV UPLOAD & CLEAR BUTTON (Admin Only)
 # ----------------------------------------------------
 if admin_access and tab5:
   with tab5:
-    st.header("⚙️ දත්ත පාලන මධ්‍යස්ථානය")
+    st.header("⚙️ දත්ත පාලන මධ්‍යස්ථානය (Data Management & CSV Import)")
+    
+    # CSV Upload Feature for recovering/managing past data
+    st.subheader("📁 පරණ දත්ත අඩංගු CSV ගොනුවක් උඩුගත කිරීම (CSV Upload)")
+    uploaded_csv = st.file_uploader("ඔබගේ පරණ ඩේටා අඩංගු CSV ෆයිල් එක මෙහි Upload කරන්න:", type=["csv"])
+    if uploaded_csv is not None:
+      try:
+        csv_df = pd.read_csv(uploaded_csv)
+        st.write("උඩුගත කරන ලද දත්තවල මුල් පේළි:")
+        st.dataframe(csv_df.head(), use_container_width=True)
+        if st.button("📥 මෙම CSV දත්ත පද්ධතියට සහ Cloud ඩේටාබේස් එකට ඇතුළත් කරන්න", type="primary"):
+          st.session_state.student_data = csv_df
+          save_marks_data(csv_df)
+          st.success("✅ CSV ෆයිල් එකේ දත්ත සාර්ථකව පද්ධතියට සහ Cloud ඩේටාබේස් එකට එකතු කරන ලදී!")
+          st.rerun()
+      except Exception as e:
+        st.error(f"CSV ගොනුව කියවීමේදී දෝෂයක් මතු විය: {e}")
+
+    st.divider()
     edited_df = st.data_editor(
         st.session_state.student_data,
         num_rows="dynamic",
