@@ -116,9 +116,10 @@ def save_roster_data(roster):
     except Exception as e:
       st.error(f"Roster Save දෝෂයකි: {e}")
 
-# Always load persistent data
-if "student_data" not in st.session_state:
+# Always load persistent data from Cloud
+if "student_data" not in st.session_state or st.session_state.student_data.empty:
   st.session_state.student_data = load_marks_data()
+
 if "roster_data" not in st.session_state:
   st.session_state.roster_data = load_roster_data()
 
@@ -374,7 +375,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -1002,6 +1003,29 @@ if admin_access and tab5:
         st.write("උඩුගත කරන ලද දත්තවල මුල් පේළි:")
         st.dataframe(csv_df.head(), use_container_width=True)
         if st.button("📥 මෙම CSV දත්ත පද්ධතියට සහ Cloud ඩේටාබේස් එකට ඇතුළත් කරන්න", type="primary"):
+          # Standardize CSV columns to fit system format if uploaded CSV has subject columns wide
+          if "Student ID" in csv_df.columns and "Subject" not in csv_df.columns:
+            melted_rows = []
+            for _, row in csv_df.iterrows():
+              s_id = str(row.get("Student ID", ""))
+              s_grade = str(row.get("Grade", GRADES[0]))
+              s_year = str(row.get("Year", YEARS[1]))
+              s_term = str(row.get("Term", "1 වන වාරය"))
+              s_status = str(row.get("Status", "Locked"))
+              for sub in SUBJECTS:
+                if sub in csv_df.columns:
+                  melted_rows.append({
+                      "Student ID": s_id,
+                      "Grade": s_grade,
+                      "Year": s_year,
+                      "Term": s_term,
+                      "Subject": sub,
+                      "Marks": int(row[sub]) if str(row[sub]).isdigit() else 0,
+                      "Status": s_status
+                  })
+            if melted_rows:
+              csv_df = pd.DataFrame(melted_rows)
+
           st.session_state.student_data = csv_df
           save_marks_data(csv_df)
           st.success("✅ CSV ෆයිල් එකේ දත්ත සාර්ථකව පද්ධතියට සහ Cloud ඩේටාබේස් එකට එකතු කරන ලදී!")
@@ -1011,7 +1035,6 @@ if admin_access and tab5:
 
     st.divider()
     
-    # Corrected data_editor state handling
     edited_df = st.data_editor(
         st.session_state.student_data,
         num_rows="dynamic",
