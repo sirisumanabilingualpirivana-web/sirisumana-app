@@ -8,8 +8,6 @@ from PIL import Image
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 # Page Configuration
 st.set_page_config(
@@ -42,37 +40,24 @@ TEACHERS = {
     "ජී.ඊ.ඩී. හේමමාලි": "hemamali123"
 }
 
-# Google Sheets Direct Connection Setup (Cloud Database)
-def init_google_sheet():
-  try:
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    # Check if gcp_service_account exists in secrets, otherwise use empty or fallback
-    if "gcp_service_account" in st.secrets:
-      creds_dict = dict(st.secrets["gcp_service_account"])
-      creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-      client = gspread.authorize(creds)
-      # Direct open using the user provided spreadsheet ID
-      sheet = client.open_by_key("1GU6jEw769V35QIaEAE-UBguAtM6390ZEJlWb73E5268")
-      return sheet
-  except Exception as e:
-    pass
-  return None
+# --- PERSISTENT JSON STORAGE FUNCTIONS ---
+MARKS_FILE = "sirisumana_data.json"
+ROSTER_FILE = "sirisumana_roster.json"
 
 def load_marks_data():
-  sheet = init_google_sheet()
-  if sheet:
+  if os.path.exists(MARKS_FILE):
     try:
-      worksheet = sheet.worksheet("Marks")
-      data = worksheet.get_all_records()
-      if data:
-        df = pd.DataFrame(data)
-        if "Year" not in df.columns:
-          df["Year"] = "2026"
-        if "Term" not in df.columns:
-          df["Term"] = "1 වන වාරය"
-        if "Status" not in df.columns:
-          df["Status"] = "Locked"
-        return df
+      with open(MARKS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        if data:
+          df = pd.DataFrame(data)
+          if "Year" not in df.columns:
+            df["Year"] = "2026"
+          if "Term" not in df.columns:
+            df["Term"] = "1 වන වාරය"
+          if "Status" not in df.columns:
+            df["Status"] = "Locked"
+          return df
     except Exception:
       pass
   return pd.DataFrame(
@@ -80,49 +65,30 @@ def load_marks_data():
   )
 
 def save_marks_data(df):
-  sheet = init_google_sheet()
-  if sheet:
-    try:
-      worksheet = sheet.worksheet("Marks")
-      worksheet.clear()
-      worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-    except Exception as e:
-      st.error(f"Cloud Database දෝෂයකි: {e}")
+  try:
+    data_list = df.to_dict(orient="records")
+    with open(MARKS_FILE, "w", encoding="utf-8") as f:
+      json.dump(data_list, f, ensure_ascii=False, indent=4)
+  except Exception as e:
+    st.error(f"දත්ත සුරැකීමේ දෝෂයක් සිදු විය: {e}")
 
 def load_roster_data():
-  sheet = init_google_sheet()
-  if sheet:
+  if os.path.exists(ROSTER_FILE):
     try:
-      worksheet = sheet.worksheet("Roster")
-      data = worksheet.get_all_records()
-      roster_dict = {}
-      for row in data:
-        grade = row.get("Grade")
-        s_id = row.get("Student ID")
-        if grade and s_id:
-          if grade not in roster_dict:
-            roster_dict[grade] = []
-          roster_dict[grade].append(str(s_id))
-      return roster_dict
+      with open(ROSTER_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
     except Exception:
       pass
   return {}
 
 def save_roster_data(roster):
-  sheet = init_google_sheet()
-  if sheet:
-    try:
-      worksheet = sheet.worksheet("Roster")
-      worksheet.clear()
-      rows = [["Grade", "Student ID"]]
-      for grade, ids in roster.items():
-        for s_id in ids:
-          rows.append([grade, s_id])
-      worksheet.update(rows)
-    except Exception as e:
-      st.error(f"Roster Save දෝෂයකි: {e}")
+  try:
+    with open(ROSTER_FILE, "w", encoding="utf-8") as f:
+      json.dump(roster, f, ensure_ascii=False, indent=4)
+  except Exception as e:
+    st.error(f"නාම ලේඛනය සුරැකීමේ දෝෂයක් සිදු විය: {e}")
 
-# Always load persistent data from Cloud
+# Always load persistent data from Local JSON files
 if "student_data" not in st.session_state or st.session_state.student_data.empty:
   st.session_state.student_data = load_marks_data()
 
@@ -421,7 +387,7 @@ with tab1:
                   ignore_index=True,
               )
               save_marks_data(st.session_state.student_data)
-              st.success("✅ Photo එකෙන් දත්ත සාර්ථකව Cloud එකට ඇතුළත් විය!")
+              st.success("✅ Photo එකෙන් දත්ත සාර්ථකව ස්ථිර ගොනුවට ඇතුළත් විය!")
               st.dataframe(extracted_df, use_container_width=True)
         except Exception as e:
           st.error(f"දෝෂයක් සිදු විය: {str(e)}")
@@ -505,7 +471,7 @@ with tab1:
                   ignore_index=True,
               )
               save_marks_data(st.session_state.student_data)
-              st.success("✅ PDF එකෙන් දත්ත සාර්ථකව Cloud එකට ඇතුළත් විය!")
+              st.success("✅ PDF එකෙන් දත්ත සාර්ථකව ස්ථිර ගොනුවට ඇතුළත් විය!")
               st.dataframe(extracted_df, use_container_width=True)
         except Exception as e:
           st.error(f"දෝෂයක් සිදු විය: {str(e)}")
@@ -576,13 +542,13 @@ with tab1:
               ignore_index=True,
           )
           save_marks_data(st.session_state.student_data)
-          st.success("ලකුණු තාවකාලිකව Cloud එකේ සුරකින ලදී (Draft Mode)!")
+          st.success("ලකුණු තාවකාලිකව සුරකින ලදී (Draft Mode)!")
         else:
           st.warning("කරුණාකර ශිෂ්‍ය අංකය ඇතුළත් කරන්න.")
 
     with btn_col2:
       if st.button(
-          "🔒 Cloud ඩේටාබේස් එකට යවා Lock කරන්න (Final Submit)",
+          "🔒 ස්ථිර දත්ත ගොනුවට යවා Lock කරන්න (Final Submit)",
           type="primary",
           use_container_width=True,
       ):
@@ -610,7 +576,7 @@ with tab1:
               ignore_index=True,
           )
           save_marks_data(st.session_state.student_data)
-          st.success("ලකුණු සාර්ථකව Cloud ඩේටාබේස් එකට එක් කර Lock කරන ලදී!")
+          st.success("ලකුණු සාර්ථකව ස්ථිර දත්ත ගොනුවට එක් කර Lock කරන ලදී!")
         else:
           st.warning("කරුණාකර ශිෂ්‍ය අංකය ඇතුළත් කරන්න.")
 
@@ -1008,7 +974,7 @@ if admin_access and tab5:
         csv_df = pd.read_csv(uploaded_csv)
         st.write("උඩුගත කරන ලද දත්තවල මුල් පේළි:")
         st.dataframe(csv_df.head(), use_container_width=True)
-        if st.button("📥 මෙම CSV දත්ත පද්ධතියට සහ Cloud ඩේටාබේස් එකට ඇතුළත් කරන්න", type="primary"):
+        if st.button("📥 මෙම CSV දත්ත පද්ධතියට සහ ස්ථිර ගොනුවට ඇතුළත් කරන්න", type="primary"):
           if "Student ID" in csv_df.columns and "Subject" not in csv_df.columns:
             melted_rows = []
             for _, row in csv_df.iterrows():
@@ -1033,7 +999,7 @@ if admin_access and tab5:
 
           st.session_state.student_data = csv_df
           save_marks_data(csv_df)
-          st.success("✅ CSV ෆයිල් එකේ දත්ත සාර්ථකව පද්ධතියට සහ Cloud ඩේටාබේස් එකට එකතු කරන ලදී!")
+          st.success("✅ CSV ෆයිල් එකේ දත්ත සාර්ථකව පද්ධතියට සහ ස්ථිර ගොනුවට එකතු කරන ලදී!")
           st.rerun()
       except Exception as e:
         st.error(f"CSV ගොනුව කියවීමේදී දෝෂයක් මතු විය: {e}")
@@ -1048,13 +1014,13 @@ if admin_access and tab5:
     )
     
     if st.button(
-        "💾 සංස්කරණය කළ දත්ත Cloud එකේ Save කරන්න",
+        "💾 සංස්කරණය කළ දත්ත ස්ථිර ගොනුවේ Save කරන්න",
         type="primary",
         use_container_width=True,
     ):
       st.session_state.student_data = edited_df
       save_marks_data(edited_df)
-      st.success("දත්ත සාර්ථකව Cloud ඩේටාබේස් එකට සංස්කරණය කර සුරකින ලදී!")
+      st.success("දත්ත සාර්ථකව ස්ථිර ගොනුවට සංස්කරණය කර සුරකින ලදී!")
       st.rerun()
 
     st.divider()
