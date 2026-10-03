@@ -202,7 +202,7 @@ if admin_access:
       "📄 විෂයානුබද්ධ විශ්ලේෂණය (නිල වාර්තාව)",
       "👤 ශිෂ්‍යානුබද්ධ විශ්ලේෂණය",
       "🏫 සමස්ත පන්ති විශ්ලේෂණය",
-      "⚙️️ දත්ත පාලනය",
+      "⚙ දත්ත පාලනය",
   ])
 else:
   tab0, tab1, tab_class_entry, tab4 = st.tabs([
@@ -317,7 +317,7 @@ with tab1:
       [
           "📸 Photo එකක් upload කර Scan කිරීම (AI Scan)",
           "📄 PDF File එකක් upload කර Scan කිරීම (PDF Scan)",
-          "✍️ අතින් එකින් එක ටයිප් කිරීම (Manual Entry)",
+          "✍️️ අතින් එකින් එක ටයිප් කිරීම (Manual Entry)",
       ],
       horizontal=True,
   )
@@ -381,7 +381,7 @@ with tab1:
                 "වෙනත් කිසිදු අමතර සටහනක් නොලියා pure JSON පමණක් ලබාදෙන්න."
             )
             response = client.models.generate_content(
-                model="gemini-3.8-flash", contents=[img, prompt_text]
+                model="gemini-2.5-flash", contents=[img, prompt_text]
             )
             raw_json = (
                 response.text.strip()
@@ -456,7 +456,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -610,7 +610,7 @@ with tab1:
 # ----------------------------------------------------
 with tab_class_entry:
   st.header("📊 පන්ති ලකුණු ලේඛනය, මුළු එකතුව, සාමාන්‍ය සහ ශ්‍රේණිගත කිරීම (Ranks)")
-  st.info("මෙහිදී පන්තියට අදාළ සියලුම විෂය ලකුණු, මුළු එකතුව, බෙදිය යුතු විෂය ගණනට අනුව සාමාන්‍ය අගය සහ පන්තියේ ස්ථානය (වෙනියා) දැකගත හැක. මුල් සිසුන් 3 දෙනා රතු පාටින් පෙන්වනු ලැබේ.")
+  st.info("මෙහිදී පන්තියට අදාළ සියලුම විෂය ලකුණු, මුළු එකතුව, බෙදිය යුතු විෂය ගණනට අනුව සාමාන්‍ය අගය සහ පන්තියේ ස්ථානය දැකගත හැක. මුල් සිසුන් 3 දෙනා රතු පාටින් පෙන්වනු ලැබේ.")
 
   col_ce1, col_ce2, col_ce3 = st.columns(3)
   with col_ce1:
@@ -647,8 +647,6 @@ with tab_class_entry:
     pivot_class["මුළු ලකුණු එකතුව"] = pivot_class.sum(axis=1)
 
     # Determine divisor based on grade rules
-    # Foundation, Grade 1, Grade 2 & English Medium 1, 2 -> Divide by 6
-    # Grade 3, 4, 5 & English Medium 3, 4, 5 -> Divide by 10
     if ce_grade in ["මූලික ශ්‍රේණිය", "1 ශ්‍රේණිය", "2 ශ්‍රේණිය", "English Medium 1", "English Medium 2"]:
       divisor = 6
     else:
@@ -1059,7 +1057,7 @@ if admin_access and tab5:
         st.rerun()
 
     with col_del2:
-      if st.button(
+      if admin_access and st.button(
           "🔓 සියලුම Locked Data Unlock කරන්න (Admin Only)",
           use_container_width=True,
       ):
