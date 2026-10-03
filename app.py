@@ -64,6 +64,8 @@ def load_marks_data():
         df = pd.DataFrame(data)
         if "Year" not in df.columns:
           df["Year"] = "2026"
+        if "Term" not in df.columns:
+          df["Term"] = "1 වන වාරය"
         if "Status" not in df.columns:
           df["Status"] = "Locked"
         return df
@@ -159,7 +161,7 @@ else:
     st.sidebar.error("වැරදි මුරපදයකි!")
 
 if not is_logged_in:
-  st.warning("⚠️ කරුණාකර පද්ධතියට පිවිසීමට Sidebar එකෙන් ඔබගේ නම සහ මුරපදය ලබා දෙන්න.")
+  st.warning("⚠️️ කරුණාකර පද්ධතියට පිවිසීමට Sidebar එකෙන් ඔබගේ නම සහ මුරපදය ලබා දෙන්න.")
   st.stop()
 
 st.sidebar.divider()
@@ -375,7 +377,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -625,10 +627,11 @@ with tab_class_entry:
 
   st.divider()
 
+  # Ensure string comparison for accurate matching
   class_marks_df = st.session_state.student_data[
-      (st.session_state.student_data["Grade"] == ce_grade)
-      & (st.session_state.student_data["Year"] == ce_year)
-      & (st.session_state.student_data["Term"] == ce_term)
+      (st.session_state.student_data["Grade"].astype(str).str.strip() == str(ce_grade).strip())
+      & (st.session_state.student_data["Year"].astype(str).str.strip() == str(ce_year).strip())
+      & (st.session_state.student_data["Term"].astype(str).str.strip() == str(ce_term).strip())
   ]
 
   if class_marks_df.empty:
@@ -746,10 +749,10 @@ if admin_access and tab2:
     st.divider()
 
     sub_df = st.session_state.student_data[
-        (st.session_state.student_data["Grade"] == sel_grade)
-        & (st.session_state.student_data["Year"] == sel_year)
-        & (st.session_state.student_data["Term"] == sel_term)
-        & (st.session_state.student_data["Subject"] == sel_subject)
+        (st.session_state.student_data["Grade"].astype(str).str.strip() == str(sel_grade).strip())
+        & (st.session_state.student_data["Year"].astype(str).str.strip() == str(sel_year).strip())
+        & (st.session_state.student_data["Term"].astype(str).str.strip() == str(sel_term).strip())
+        & (st.session_state.student_data["Subject"].astype(str).str.strip() == str(sel_subject).strip())
     ].copy()
 
     if sub_df.empty:
@@ -907,7 +910,7 @@ if admin_access and tab3:
       st_year = st.selectbox("වර්ෂය තෝරන්න:", YEARS, index=1, key="st_year")
 
       filtered_by_year = st.session_state.student_data[
-          st.session_state.student_data["Year"] == st_year
+          st.session_state.student_data["Year"].astype(str).str.strip() == str(st_year).strip()
       ]
       if filtered_by_year.empty:
         st.info("මෙම වර්ෂය සඳහා දත්ත නොමැත.")
@@ -918,7 +921,7 @@ if admin_access and tab3:
         )
 
         student_df = filtered_by_year[
-            filtered_by_year["Student ID"] == selected_student
+            filtered_by_year["Student ID"].astype(str).str.strip() == str(selected_student).strip()
         ]
         s_grade = student_df["Grade"].iloc[0]
 
@@ -968,9 +971,9 @@ with tab4:
       )
 
     class_df = st.session_state.student_data[
-        (st.session_state.student_data["Grade"] == c_grade)
-        & (st.session_state.student_data["Year"] == c_year)
-        & (st.session_state.student_data["Term"] == c_term)
+        (st.session_state.student_data["Grade"].astype(str).str.strip() == str(c_grade).strip())
+        & (st.session_state.student_data["Year"].astype(str).str.strip() == str(c_year).strip())
+        & (st.session_state.student_data["Term"].astype(str).str.strip() == str(c_term).strip())
     ]
 
     if class_df.empty:
