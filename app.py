@@ -42,17 +42,21 @@ TEACHERS = {
     "ජී.ඊ.ඩී. හේමමාලි": "hemamali123"
 }
 
-# Google Sheets Connection Setup (Cloud Database)
+# Google Sheets Direct Connection Setup (Cloud Database)
 def init_google_sheet():
   try:
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open("Sirisumana_Database")
-    return sheet
+    # Check if gcp_service_account exists in secrets, otherwise use empty or fallback
+    if "gcp_service_account" in st.secrets:
+      creds_dict = dict(st.secrets["gcp_service_account"])
+      creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+      client = gspread.authorize(creds)
+      # Direct open using the user provided spreadsheet ID
+      sheet = client.open_by_key("1GU6jEw769V35QIaEAE-UBguAtM6390ZEJlWb73E5268")
+      return sheet
   except Exception as e:
-    return None
+    pass
+  return None
 
 def load_marks_data():
   sheet = init_google_sheet()
@@ -161,7 +165,7 @@ else:
     st.sidebar.error("වැරදි මුරපදයකි!")
 
 if not is_logged_in:
-  st.warning("⚠️️ කරුණාකර පද්ධතියට පිවිසීමට Sidebar එකෙන් ඔබගේ නම සහ මුරපදය ලබා දෙන්න.")
+  st.warning("⚠️ කරුණාකර පද්ධතියට පිවිසීමට Sidebar එකෙන් ඔබගේ නම සහ මුරපදය ලබා දෙන්න.")
   st.stop()
 
 st.sidebar.divider()
@@ -377,7 +381,7 @@ with tab1:
                 " සෞඛ්‍ය විද්‍යාව (Health Sci.), භූගෝල විද්‍යාව (Geog. Phy.)\n"
                 "ලකුණු නැතිනම් 0 යොදන්න.\n"
                 "JSON Format:\n"
-                '[{"Student ID": "3017", "Marks": {"ත්‍‍රිපිටක ධර්මය'
+                '[{"Student ID": "3017", "Marks": {"ත්‍රිපිටක ධර්මය'
                 ' (Tripitaka)": 48, "සිංහල (Sinhala)": 62, "පාලි (Pali)": 60,'
                 ' "සංස්කෘත (Sanskrit)": 55, "ගණිතය (Maths)": 59, "ඉංග්‍රීසි'
                 ' (English)": 31, "ඉතිහාසය (History)": 0, "සමාජ විද්‍යාව (Social'
@@ -627,7 +631,6 @@ with tab_class_entry:
 
   st.divider()
 
-  # Ensure string comparison for accurate matching
   class_marks_df = st.session_state.student_data[
       (st.session_state.student_data["Grade"].astype(str).str.strip() == str(ce_grade).strip())
       & (st.session_state.student_data["Year"].astype(str).str.strip() == str(ce_year).strip())
@@ -1006,7 +1009,6 @@ if admin_access and tab5:
         st.write("උඩුගත කරන ලද දත්තවල මුල් පේළි:")
         st.dataframe(csv_df.head(), use_container_width=True)
         if st.button("📥 මෙම CSV දත්ත පද්ධතියට සහ Cloud ඩේටාබේස් එකට ඇතුළත් කරන්න", type="primary"):
-          # Standardize CSV columns to fit system format if uploaded CSV has subject columns wide
           if "Student ID" in csv_df.columns and "Subject" not in csv_df.columns:
             melted_rows = []
             for _, row in csv_df.iterrows():
